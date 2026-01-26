@@ -1,0 +1,212 @@
+version: '3.8'
+
+services:
+  # Databases
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: cognitivehub
+      POSTGRES_PASSWORD: cognitivehub_dev
+      POSTGRES_DB: cognitivehub
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cognitivehub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Vector Database for RAG
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Message Queue
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: cognitivehub
+      RABBITMQ_DEFAULT_PASS: cognitivehub_dev
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Core Services
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://cognitivehub:cognitivehub_dev@postgres:5432/cognitivehub
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  project-context:
+    build:
+      context: ./services/project-context
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: postgresql://cognitivehub:cognitivehub_dev@postgres:5432/cognitivehub
+      REDIS_URL: redis://redis:6379/1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  workflow-engine:
+    build:
+      context: ./services/workflow-engine
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8000"
+    environment:
+      DATABASE_URL: postgresql://cognitivehub:cognitivehub_dev@postgres:5432/cognitivehub
+      REDIS_URL: redis://redis:6379/2
+      RABBITMQ_URL: amqp://cognitivehub:cognitivehub_dev@rabbitmq:5672/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  knowledge-hub:
+    build:
+      context: ./services/knowledge-hub
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8000"
+    environment:
+      DATABASE_URL: postgresql://cognitivehub:cognitivehub_dev@postgres:5432/cognitivehub
+      REDIS_URL: redis://redis:6379/3
+      QDRANT_URL: http://qdrant:6333
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
+  system-analysis:
+    build:
+      context: ./services/system-analysis
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8000"
+    environment:
+      DATABASE_URL: postgresql://cognitivehub:cognitivehub_dev@postgres:5432/cognitivehub
+      REDIS_URL: redis://redis:6379/4
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  decision-engine:
+    build:
+      context: ./services/decision-engine
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8000"
+    environment:
+      DATABASE_URL: postgresql://cognitivehub:cognitivehub_dev@postgres:5432/cognitivehub
+      REDIS_URL: redis://redis:6379/5
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  insight-service:
+    build:
+      context: ./services/insight-service
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8000"
+    environment:
+      DATABASE_URL: postgresql://cognitivehub:cognitivehub_dev@postgres:5432/cognitivehub
+      REDIS_URL: redis://redis:6379/6
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8000
+      PROJECT_CONTEXT_URL: http://project-context:8000
+      WORKFLOW_ENGINE_URL: http://workflow-engine:8000
+      KNOWLEDGE_HUB_URL: http://knowledge-hub:8000
+      SYSTEM_ANALYSIS_URL: http://system-analysis:8000
+      DECISION_ENGINE_URL: http://decision-engine:8000
+      INSIGHT_SERVICE_URL: http://insight-service:8000
+    depends_on:
+      - auth-service
+      - project-context
+      - workflow-engine
+      - knowledge-hub
+      - system-analysis
+      - decision-engine
+      - insight-service
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres_data:
+  qdrant_data:
+
