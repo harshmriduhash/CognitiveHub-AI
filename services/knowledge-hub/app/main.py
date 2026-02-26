@@ -8,8 +8,8 @@ from typing import List, Optional
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 from shared.database import get_db, Base, engine
+from shared.security import get_tenant_id
 from app import models, schemas, rag_service
 
 # Create tables
@@ -25,7 +25,7 @@ app = FastAPI(
 @app.post("/documents", response_model=schemas.DocumentResponse)
 async def ingest_document(
     file: UploadFile = File(...),
-    tenant_id: str = None,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     project_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
@@ -54,7 +54,7 @@ async def ingest_document(
 @app.post("/documents/text", response_model=schemas.DocumentResponse)
 async def ingest_text(
     document: schemas.DocumentCreate,
-    tenant_id: str = None,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Ingest text content into the knowledge base"""
@@ -77,7 +77,7 @@ async def ingest_text(
 @app.post("/search", response_model=schemas.SearchResponse)
 async def semantic_search(
     query: schemas.SearchQuery,
-    tenant_id: str = None,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Perform semantic search on the knowledge base"""
@@ -97,7 +97,7 @@ async def semantic_search(
 
 @app.get("/documents", response_model=List[schemas.DocumentResponse])
 async def list_documents(
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     project_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
@@ -109,7 +109,7 @@ async def list_documents(
 @app.delete("/documents/{document_id}")
 async def delete_document(
     document_id: str,
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Delete a document"""

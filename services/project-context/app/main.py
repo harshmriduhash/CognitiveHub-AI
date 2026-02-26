@@ -8,8 +8,8 @@ from typing import List, Optional
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 from shared.database import get_db, Base, engine
+from shared.security import get_tenant_id
 from app import models, schemas
 
 # Create tables
@@ -25,7 +25,7 @@ app = FastAPI(
 @app.post("/projects", response_model=schemas.ProjectResponse)
 async def create_project(
     project: schemas.ProjectCreate,
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Create a new project"""
@@ -46,7 +46,7 @@ async def create_project(
 
 @app.get("/projects", response_model=List[schemas.ProjectResponse])
 async def list_projects(
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """List all projects for a tenant"""
@@ -57,7 +57,7 @@ async def list_projects(
 @app.get("/projects/{project_id}", response_model=schemas.ProjectResponse)
 async def get_project(
     project_id: str,
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Get project by ID"""
@@ -74,7 +74,7 @@ async def get_project(
 async def update_project(
     project_id: str,
     project_update: schemas.ProjectUpdate,
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Update project"""
@@ -98,7 +98,7 @@ async def update_project(
 @app.delete("/projects/{project_id}")
 async def delete_project(
     project_id: str,
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Delete project"""

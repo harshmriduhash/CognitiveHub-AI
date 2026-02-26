@@ -67,36 +67,69 @@ async def execute_architecture_analysis_workflow(
         project_id = input_data.get("project_id")
         project_context = {}
         if project_id:
-            # In production, call project-context service
-            pass
+            try:
+                response = await client.get(
+                    f"{config.PROJECT_CONTEXT_URL}/projects/{project_id}",
+                    params={"tenant_id": tenant_id}
+                )
+                if response.status_code == 200:
+                    project_context = response.json()
+            except Exception as e:
+                print(f"Error fetching project context: {e}")
         
         # Step 2: Retrieve relevant knowledge
-        knowledge_results = {}
+        knowledge_results = []
         if input_data.get("research_required", True):
-            # Call knowledge hub for research
-            # knowledge_results = await client.post(
-            #     f"{config.KNOWLEDGE_HUB_URL}/search",
-            #     json={"query": input_data.get("system_description", "")}
-            # )
-            pass
+            try:
+                response = await client.post(
+                    f"{config.KNOWLEDGE_HUB_URL}/search",
+                    json={
+                        "query": input_data.get("system_description", {}).get("description", ""),
+                        "project_id": project_id,
+                        "limit": 5
+                    },
+                    params={"tenant_id": tenant_id}
+                )
+                if response.status_code == 200:
+                    knowledge_results = response.json().get("results", [])
+            except Exception as e:
+                print(f"Error searching knowledge hub: {e}")
         
         # Step 3: Run system analysis
         analysis_result = {}
-        # analysis_result = await client.post(
-        #     f"{config.SYSTEM_ANALYSIS_URL}/analyze",
-        #     json={
-        #         "system_description": input_data.get("system_description", ""),
-        #         "context": project_context,
-        #         "knowledge": knowledge_results
-        #     }
-        # )
+        try:
+            response = await client.post(
+                f"{config.SYSTEM_ANALYSIS_URL}/analyze",
+                json={
+                    "system_description": input_data.get("system_description", {}),
+                    "analysis_types": input_data.get("analysis_types", []),
+                    "context": project_context,
+                    "knowledge": knowledge_results
+                },
+                params={"tenant_id": tenant_id}
+            )
+            if response.status_code == 200:
+                analysis_result = response.json()
+        except Exception as e:
+            print(f"Error running system analysis: {e}")
         
         # Step 4: Generate insights
         insights = {}
-        # insights = await client.post(
-        #     f"{config.INSIGHT_SERVICE_URL}/generate",
-        #     json={"analysis": analysis_result}
-        # )
+        try:
+            response = await client.post(
+                f"{config.INSIGHT_SERVICE_URL}/generate",
+                json={
+                    "source_type": "analysis",
+                    "source_data": analysis_result,
+                    "project_id": project_id,
+                    "context": project_context
+                },
+                params={"tenant_id": tenant_id}
+            )
+            if response.status_code == 200:
+                insights = response.json()
+        except Exception as e:
+            print(f"Error generating insights: {e}")
         
         return {
             "knowledge": knowledge_results,
@@ -114,24 +147,54 @@ async def execute_decision_support_workflow(
     async with httpx.AsyncClient() as client:
         # Step 1: Get project context
         project_id = input_data.get("project_id")
+        project_context = {}
+        if project_id:
+            try:
+                response = await client.get(
+                    f"{config.PROJECT_CONTEXT_URL}/projects/{project_id}",
+                    params={"tenant_id": tenant_id}
+                )
+                if response.status_code == 200:
+                    project_context = response.json()
+            except Exception as e:
+                print(f"Error fetching project context: {e}")
         
         # Step 2: Run decision engine
         decision_result = {}
-        # decision_result = await client.post(
-        #     f"{config.DECISION_ENGINE_URL}/evaluate",
-        #     json={
-        #         "alternatives": input_data.get("alternatives", []),
-        #         "criteria": input_data.get("criteria", []),
-        #         "context": input_data.get("context", {})
-        #     }
-        # )
+        try:
+            response = await client.post(
+                f"{config.DECISION_ENGINE_URL}/evaluate",
+                json={
+                    "alternatives": input_data.get("alternatives", []),
+                    "criteria": input_data.get("criteria", []),
+                    "constraints": input_data.get("constraints", {}),
+                    "goals": input_data.get("goals", []),
+                    "context": project_context
+                },
+                params={"tenant_id": tenant_id}
+            )
+            if response.status_code == 200:
+                decision_result = response.json()
+        except Exception as e:
+            print(f"Error running decision engine: {e}")
         
         # Step 3: Generate insights
         insights = {}
-        # insights = await client.post(
-        #     f"{config.INSIGHT_SERVICE_URL}/generate",
-        #     json={"decision": decision_result}
-        # )
+        try:
+            response = await client.post(
+                f"{config.INSIGHT_SERVICE_URL}/generate",
+                json={
+                    "source_type": "decision",
+                    "source_data": decision_result,
+                    "project_id": project_id,
+                    "context": project_context
+                },
+                params={"tenant_id": tenant_id}
+            )
+            if response.status_code == 200:
+                insights = response.json()
+        except Exception as e:
+            print(f"Error generating insights: {e}")
         
         return {
             "decision": decision_result,
