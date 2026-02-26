@@ -9,8 +9,8 @@ from datetime import datetime
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 from shared.database import get_db, Base, engine
+from shared.security import get_tenant_id
 from app import models, schemas, insight_generator
 
 # Create tables
@@ -26,7 +26,7 @@ app = FastAPI(
 @app.post("/generate", response_model=schemas.InsightResponse)
 async def generate_insight(
     request: schemas.InsightRequest,
-    tenant_id: str = None,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Generate insights from AI analysis or decision results"""
@@ -55,10 +55,10 @@ async def generate_insight(
 
 @app.get("/insights", response_model=List[schemas.InsightResponse])
 async def list_insights(
-    tenant_id: str,  # In production, get from auth token
     project_id: Optional[str] = None,
     insight_type: Optional[str] = None,
     limit: int = 50,
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """List insights for a tenant"""
@@ -71,7 +71,7 @@ async def list_insights(
 @app.get("/insights/{insight_id}", response_model=schemas.InsightResponse)
 async def get_insight(
     insight_id: str,
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Get insight by ID"""
@@ -87,7 +87,7 @@ async def get_insight(
 @app.post("/reports", response_model=schemas.ReportResponse)
 async def create_report(
     request: schemas.ReportCreate,
-    tenant_id: str = None,
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Create a comprehensive report from multiple insights"""
@@ -120,8 +120,8 @@ async def create_report(
 
 @app.get("/reports", response_model=List[schemas.ReportResponse])
 async def list_reports(
-    tenant_id: str,
     project_id: Optional[str] = None,
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """List reports for a tenant"""

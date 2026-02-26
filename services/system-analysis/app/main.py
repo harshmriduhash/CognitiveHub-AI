@@ -8,8 +8,8 @@ from typing import List, Optional
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 from shared.database import get_db, Base, engine
+from shared.security import get_tenant_id
 from shared.models import AnalysisType
 from app import schemas, analysis_engine
 
@@ -26,7 +26,7 @@ app = FastAPI(
 @app.post("/analyze", response_model=schemas.AnalysisResponse)
 async def analyze_system(
     request: schemas.AnalysisRequest,
-    tenant_id: str = None,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Analyze a system architecture"""
@@ -48,7 +48,7 @@ async def analyze_system(
 @app.post("/analyze/batch", response_model=List[schemas.AnalysisResponse])
 async def analyze_systems_batch(
     request: schemas.BatchAnalysisRequest,
-    tenant_id: str = None,
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Analyze multiple systems"""

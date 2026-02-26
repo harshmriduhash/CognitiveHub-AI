@@ -8,8 +8,8 @@ from typing import List, Optional
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 from shared.database import get_db, Base, engine
+from shared.security import get_tenant_id
 from app import schemas, decision_engine
 
 # Create tables
@@ -25,7 +25,7 @@ app = FastAPI(
 @app.post("/evaluate", response_model=schemas.DecisionResponse)
 async def evaluate_decision(
     request: schemas.DecisionRequest,
-    tenant_id: str = None,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Evaluate alternatives and provide decision recommendation"""
@@ -50,7 +50,7 @@ async def evaluate_decision(
 @app.post("/compare", response_model=schemas.ComparisonResponse)
 async def compare_alternatives(
     request: schemas.ComparisonRequest,
-    tenant_id: str = None,
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Compare multiple alternatives side-by-side"""

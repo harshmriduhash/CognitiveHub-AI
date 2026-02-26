@@ -8,8 +8,8 @@ from typing import List, Optional
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 from shared.database import get_db, Base, engine
+from shared.security import get_tenant_id
 from shared.models import WorkflowStatus
 from app import models, schemas, workflow_executor
 
@@ -26,8 +26,8 @@ app = FastAPI(
 @app.post("/workflows", response_model=schemas.WorkflowResponse)
 async def create_workflow(
     workflow: schemas.WorkflowCreate,
-    tenant_id: str,  # In production, get from auth token
     background_tasks: BackgroundTasks,
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Create and start a new workflow"""
@@ -55,8 +55,8 @@ async def create_workflow(
 
 @app.get("/workflows", response_model=List[schemas.WorkflowResponse])
 async def list_workflows(
-    tenant_id: str,  # In production, get from auth token
     project_id: Optional[str] = None,
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """List workflows for a tenant"""
@@ -67,7 +67,7 @@ async def list_workflows(
 @app.get("/workflows/{workflow_id}", response_model=schemas.WorkflowResponse)
 async def get_workflow(
     workflow_id: str,
-    tenant_id: str,  # In production, get from auth token
+    tenant_id: str = Depends(get_tenant_id),
     db: Session = Depends(get_db)
 ):
     """Get workflow by ID"""
